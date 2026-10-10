@@ -41,7 +41,9 @@ public class ClientEventHandler {
         if (lostHp > 0.01) {
             double lostHearts = lostHp / 2.0;
             String text;
-            if (lostHearts == (int) lostHearts) {
+            if (lostHearts == 1.0) {
+                text = Component.translatable("hud.com.jules.immersivedeath.lost_max_hp_int_one").getString();
+            } else if (lostHearts == (int) lostHearts) {
                 text = Component.translatable("hud.com.jules.immersivedeath.lost_max_hp_int", (int) lostHearts).getString();
             } else {
                 text = Component.translatable("hud.com.jules.immersivedeath.lost_max_hp_float", String.format(Locale.ROOT, "%.1f", lostHearts)).getString();
@@ -52,7 +54,10 @@ public class ClientEventHandler {
             int screenHeight = mc.getWindow().getGuiScaledHeight();
 
             int x = screenWidth / 2 - 91;
-            int y = screenHeight - 49; // Above health bar
+
+            int armor = player.getArmorValue();
+            int yOffset = (armor > 0) ? 10 : 0;
+            int y = screenHeight - 49 - yOffset;
 
             guiGraphics.drawString(mc.font, text, x, y, 0xFF5555, true);
         }
