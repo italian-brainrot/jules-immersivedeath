@@ -29,7 +29,7 @@ public class HeartContainerItem extends Item {
 
         if (lostHp <= 0.001) {
             player.displayClientMessage(
-                    Component.translatable("item.com.jules.immersivedeath.heart_container.full_health"),
+                    Component.translatable("item.immersivedeath.heart_container.full_health"),
                     true
             );
             return InteractionResultHolder.fail(itemStack);
@@ -64,7 +64,7 @@ public class HeartContainerItem extends Item {
 
                     int heartsRestored = 1;
                     serverPlayer.displayClientMessage(
-                            Component.translatable("item.com.jules.immersivedeath.heart_container.restored", heartsRestored),
+                            Component.translatable("item.immersivedeath.heart_container.restored", heartsRestored),
                             true
                     );
 

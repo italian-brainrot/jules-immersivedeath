@@ -42,11 +42,11 @@ public class ClientEventHandler {
             double lostHearts = lostHp / 2.0;
             String text;
             if (lostHearts == 1.0) {
-                text = Component.translatable("hud.com.jules.immersivedeath.lost_max_hp_int_one").getString();
+                text = Component.translatable("hud.immersivedeath.lost_max_hp_int_one").getString();
             } else if (lostHearts == (int) lostHearts) {
-                text = Component.translatable("hud.com.jules.immersivedeath.lost_max_hp_int", (int) lostHearts).getString();
+                text = Component.translatable("hud.immersivedeath.lost_max_hp_int", (int) lostHearts).getString();
             } else {
-                text = Component.translatable("hud.com.jules.immersivedeath.lost_max_hp_float", String.format(Locale.ROOT, "%.1f", lostHearts)).getString();
+                text = Component.translatable("hud.immersivedeath.lost_max_hp_float", String.format(Locale.ROOT, "%.1f", lostHearts)).getString();
             }
 
             GuiGraphics guiGraphics = event.getGuiGraphics();

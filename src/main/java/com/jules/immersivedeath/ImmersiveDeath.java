@@ -9,7 +9,7 @@ import net.neoforged.fml.ModContainer;
 
 @Mod(ImmersiveDeath.MODID)
 public class ImmersiveDeath {
-    public static final String MODID = "com.jules.immersivedeath";
+    public static final String MODID = "immersivedeath";
     public static final Logger LOGGER = LogUtils.getLogger();
 
     public ImmersiveDeath(IEventBus modEventBus, ModContainer modContainer) {
