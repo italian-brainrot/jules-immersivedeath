@@ -11,7 +11,6 @@ public class DeathData implements INBTSerializable<CompoundTag> {
     private double lostMaxHp = 0.0;
     private boolean pendingPenalty = false;
     private ListTag inventorySnapshot = new ListTag();
-    private ListTag extraDropsSnapshot = new ListTag();
 
     private int nauseaTicks = 0;
     private int blindnessTicks = 0;
@@ -52,14 +51,6 @@ public class DeathData implements INBTSerializable<CompoundTag> {
         this.inventorySnapshot = inventorySnapshot != null ? inventorySnapshot : new ListTag();
     }
 
-    public ListTag getExtraDropsSnapshot() {
-        return extraDropsSnapshot;
-    }
-
-    public void setExtraDropsSnapshot(ListTag extraDropsSnapshot) {
-        this.extraDropsSnapshot = extraDropsSnapshot != null ? extraDropsSnapshot : new ListTag();
-    }
-
     public int getNauseaTicks() {
         return nauseaTicks;
     }
@@ -91,7 +82,6 @@ public class DeathData implements INBTSerializable<CompoundTag> {
         tag.putDouble("lostMaxHp", lostMaxHp);
         tag.putBoolean("pendingPenalty", pendingPenalty);
         tag.put("inventorySnapshot", inventorySnapshot.copy());
-        tag.put("extraDropsSnapshot", extraDropsSnapshot.copy());
         tag.putInt("nauseaTicks", nauseaTicks);
         tag.putInt("blindnessTicks", blindnessTicks);
         tag.putInt("weaknessTicks", weaknessTicks);
@@ -113,11 +103,6 @@ public class DeathData implements INBTSerializable<CompoundTag> {
             this.inventorySnapshot = tag.getList("inventorySnapshot", Tag.TAG_COMPOUND).copy();
         } else {
             this.inventorySnapshot = new ListTag();
-        }
-        if (tag.contains("extraDropsSnapshot", Tag.TAG_LIST)) {
-            this.extraDropsSnapshot = tag.getList("extraDropsSnapshot", Tag.TAG_COMPOUND).copy();
-        } else {
-            this.extraDropsSnapshot = new ListTag();
         }
         if (tag.contains("nauseaTicks", Tag.TAG_INT)) {
             this.nauseaTicks = tag.getInt("nauseaTicks");

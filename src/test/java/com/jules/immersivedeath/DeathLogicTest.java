@@ -12,7 +12,6 @@ public class DeathLogicTest {
         assertEquals(0.0, data.getLostMaxHp(), 0.001);
         assertFalse(data.isPendingPenalty());
         assertNotNull(data.getInventorySnapshot());
-        assertNotNull(data.getExtraDropsSnapshot());
         assertEquals(0, data.getNauseaTicks());
         assertEquals(0, data.getBlindnessTicks());
         assertEquals(0, data.getWeaknessTicks());
@@ -78,6 +77,24 @@ public class DeathLogicTest {
         int dur0 = 0;
         int targetLvl0 = (int) Math.ceil(((double) dur0 / 600.0) * 9.0);
         assertEquals(0, targetLvl0);
+
+        // Blindness: max level 15, max duration 1200 ticks
+        int bDur1200 = 1200;
+        int bLvl1200 = (int) Math.ceil(((double) bDur1200 / 1200.0) * 15.0);
+        assertEquals(15, bLvl1200);
+
+        int bDur600 = 600;
+        int bLvl600 = (int) Math.ceil(((double) bDur600 / 1200.0) * 15.0);
+        assertEquals(8, bLvl600);
+
+        // Weakness: max level 18, max duration 12000 ticks
+        int wDur12000 = 12000;
+        int wLvl12000 = (int) Math.ceil(((double) wDur12000 / 12000.0) * 18.0);
+        assertEquals(18, wLvl12000);
+
+        int wDur6000 = 6000;
+        int wLvl6000 = (int) Math.ceil(((double) wDur6000 / 12000.0) * 18.0);
+        assertEquals(9, wLvl6000);
     }
 
     @Test

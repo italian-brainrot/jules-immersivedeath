@@ -58,7 +58,7 @@ public class DeathEventHandler {
 
         DeathData deathData = player.getData(ModAttachments.DEATH_DATA);
 
-        // Snapshot main inventory
+        // Save vanilla inventory snapshot to DeathData (persisted via attachment)
         ListTag invTag = new ListTag();
         player.getInventory().save(invTag);
         deathData.setInventorySnapshot(invTag);
@@ -75,39 +75,42 @@ public class DeathEventHandler {
 
             double currentLost = deathData.getLostMaxHp();
             double baseMaxHp = player.getAttributeBaseValue(Attributes.MAX_HEALTH);
-            double maxAllowedLost = Math.max(0.0, baseMaxHp - 1.0); // Down to 1 max HP
-            double newLost = Math.min(currentLost + 2.0, maxAllowedLost);
+            double maxAllowedLost = Math.max(0.0, baseMaxHp - 1.0); // Down to 1 max HP (0.5 heart)
+            double newLost = Math.min(currentLost + 2.0, maxAllowedLost); // 1 full heart = 2.0 HP
             deathData.setLostMaxHp(newLost);
         }
     }
 
-    @SubscribeEvent(priority = EventPriority.LOWEST, receiveCanceled = true)
+    @SubscribeEvent(priority = EventPriority.LOWEST)
     public static void onLivingDrops(LivingDropsEvent event) {
+        if (event.isCanceled()) return;
         if (!(event.getEntity() instanceof ServerPlayer player)) return;
         if (player.level().getGameRules().getBoolean(GameRules.RULE_KEEPINVENTORY)) return;
 
         DeathData deathData = player.getData(ModAttachments.DEATH_DATA);
+        ListTag invSnapshot = deathData.getInventorySnapshot();
+        if (invSnapshot == null || invSnapshot.isEmpty()) return;
 
-        ListTag inventorySnapshot = deathData.getInventorySnapshot();
-        List<ItemStack> expectedMainInventory = new ArrayList<>();
-        if (inventorySnapshot != null) {
-            for (int i = 0; i < inventorySnapshot.size(); i++) {
-                CompoundTag slotTag = inventorySnapshot.getCompound(i);
-                ItemStack stack = ItemStack.parse(player.registryAccess(), slotTag).orElse(ItemStack.EMPTY);
-                if (!stack.isEmpty()) {
-                    expectedMainInventory.add(stack.copy());
-                }
+        List<ItemStack> expectedVanillaInventory = new ArrayList<>();
+        for (int i = 0; i < invSnapshot.size(); i++) {
+            CompoundTag slotTag = invSnapshot.getCompound(i);
+            ItemStack stack = ItemStack.parse(player.registryAccess(), slotTag).orElse(ItemStack.EMPTY);
+            if (!stack.isEmpty()) {
+                expectedVanillaInventory.add(stack.copy());
             }
         }
 
-        // Filter out main inventory drops, keeping only extra drops (custom slots/backpacks/accessories)
-        ListTag extraTag = new ListTag();
-        for (ItemEntity drop : event.getDrops()) {
+        // Remove vanilla inventory drops from drops list so player doesn't drop vanilla items on the ground.
+        // Leave any extra drops (e.g. from accessories, backpacks, custom slots) in event.getDrops()
+        // so other mods (trinkets, curios, gravestones, etc.) can handle them naturally.
+        Iterator<ItemEntity> dropIterator = event.getDrops().iterator();
+        while (dropIterator.hasNext()) {
+            ItemEntity drop = dropIterator.next();
             if (drop == null || drop.getItem().isEmpty()) continue;
 
-            ItemStack remainingDrop = drop.getItem().copy();
+            ItemStack remainingDrop = drop.getItem();
 
-            for (Iterator<ItemStack> it = expectedMainInventory.iterator(); it.hasNext(); ) {
+            for (Iterator<ItemStack> it = expectedVanillaInventory.iterator(); it.hasNext(); ) {
                 ItemStack mainStack = it.next();
                 if (ItemStack.isSameItemSameComponents(mainStack, remainingDrop)) {
                     int countToDeduct = Math.min(mainStack.getCount(), remainingDrop.getCount());
@@ -118,20 +121,12 @@ public class DeathEventHandler {
                         it.remove();
                     }
                     if (remainingDrop.isEmpty()) {
+                        dropIterator.remove();
                         break;
                     }
                 }
             }
-
-            if (!remainingDrop.isEmpty()) {
-                extraTag.add(remainingDrop.save(player.registryAccess(), new CompoundTag()));
-            }
         }
-
-        deathData.setExtraDropsSnapshot(extraTag);
-
-        event.getDrops().clear();
-        event.setCanceled(true);
     }
 
     @SubscribeEvent(priority = EventPriority.HIGHEST)
@@ -141,28 +136,16 @@ public class DeathEventHandler {
 
         if (event.getEntity() instanceof ServerPlayer newPlayer && event.getOriginal() instanceof ServerPlayer oldPlayer) {
             DeathData oldData = oldPlayer.getData(ModAttachments.DEATH_DATA);
-
-            // Restore main inventory snapshot
             ListTag snapshot = oldData.getInventorySnapshot();
             if (snapshot != null && !snapshot.isEmpty()) {
                 newPlayer.getInventory().load(snapshot);
                 oldData.setInventorySnapshot(new ListTag());
             }
 
-            // Restore any extra item drops (e.g. from custom slot mods / accessories)
-            ListTag extraSnapshot = oldData.getExtraDropsSnapshot();
-            if (extraSnapshot != null && !extraSnapshot.isEmpty()) {
-                for (int i = 0; i < extraSnapshot.size(); i++) {
-                    CompoundTag tag = extraSnapshot.getCompound(i);
-                    ItemStack stack = ItemStack.parse(newPlayer.registryAccess(), tag).orElse(ItemStack.EMPTY);
-                    if (!stack.isEmpty()) {
-                        if (!newPlayer.getInventory().add(stack)) {
-                            newPlayer.drop(stack, false);
-                        }
-                    }
-                }
-                oldData.setExtraDropsSnapshot(new ListTag());
-            }
+            // Standard vanilla player experience resetting on death when keepInventory is false
+            newPlayer.experienceLevel = 0;
+            newPlayer.experienceProgress = 0.0f;
+            newPlayer.totalExperience = 0;
 
             updateMaxHealthModifier(newPlayer, oldData.getLostMaxHp());
         }
@@ -179,19 +162,19 @@ public class DeathEventHandler {
         if (deathData.isPendingPenalty()) {
             deathData.setPendingPenalty(false);
 
-            // Hunger to 6/20
+            // Hunger set to 6/20
             player.getFoodData().setFoodLevel(6);
             player.getFoodData().setSaturation(0.0f);
 
             // Set debuff tick counters in DeathData
-            deathData.setNauseaTicks(600);   // 30s = 600 ticks
+            deathData.setNauseaTicks(600);    // 30s = 600 ticks
             deathData.setBlindnessTicks(1200); // 60s = 1200 ticks
-            deathData.setWeaknessTicks(12000); // 600s = 12000 ticks
+            deathData.setWeaknessTicks(12000); // 10m = 12000 ticks
 
             // Apply initial debuff instances
             // Nausea IX (30s = 600 ticks, level 9 = amp 8)
             player.addEffect(new MobEffectInstance(MobEffects.CONFUSION, 600, 8, false, true, true));
-            // Blindness XV (1m = 1200 ticks, level 15 = amp 14)
+            // Blindness XV (60s = 1200 ticks, level 15 = amp 14)
             player.addEffect(new MobEffectInstance(MobEffects.BLINDNESS, 1200, 14, false, true, true));
             // Weakness XVIII (10m = 12000 ticks, level 18 = amp 17)
             player.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, 12000, 17, false, true, true));
@@ -213,7 +196,7 @@ public class DeathEventHandler {
 
         DeathData deathData = player.getData(ModAttachments.DEATH_DATA);
 
-        // Nausea (CONFUSION) linear decay for death debuff
+        // Nausea (CONFUSION) linear decay: level 9 down to 1 over 30s (600 ticks)
         int nTicks = deathData.getNauseaTicks();
         if (nTicks > 0) {
             if (!player.hasEffect(MobEffects.CONFUSION)) {
@@ -237,7 +220,7 @@ public class DeathEventHandler {
             }
         }
 
-        // Blindness linear decay for death debuff
+        // Blindness linear decay: level 15 down to 1 over 60s (1200 ticks)
         int bTicks = deathData.getBlindnessTicks();
         if (bTicks > 0) {
             if (!player.hasEffect(MobEffects.BLINDNESS)) {
@@ -261,7 +244,7 @@ public class DeathEventHandler {
             }
         }
 
-        // Weakness linear decay for death debuff
+        // Weakness linear decay: level 18 down to 1 over 10m (12000 ticks)
         int wTicks = deathData.getWeaknessTicks();
         if (wTicks > 0) {
             if (!player.hasEffect(MobEffects.WEAKNESS)) {
