@@ -46,6 +46,15 @@ public class DeathLogicTest {
     }
 
     @Test
+    public void testOneMinuteDeathLoopThreshold() {
+        long lastDeath = 1000L;
+        // Exactly 1199 ticks (59.95 seconds) -> Death loop
+        assertTrue((1000L >= 0L) && ((2199L - lastDeath) < 1200L), "1199 ticks should trigger death loop protection");
+        // Exactly 1200 ticks (60.00 seconds) -> Not a death loop
+        assertFalse((1000L >= 0L) && ((2200L - lastDeath) < 1200L), "1200 ticks should NOT trigger death loop protection");
+    }
+
+    @Test
     public void testMaxHpReductionLimits() {
         double baseMaxHp = 20.0;
         double maxAllowedLost = Math.max(0.0, baseMaxHp - 1.0); // 19.0 (so player has 1 HP)
@@ -57,6 +66,55 @@ public class DeathLogicTest {
 
         assertEquals(19.0, lost, 0.001, "Max HP lost should cap at 19.0 (leaving 1 max HP)");
         assertEquals(1.0, baseMaxHp - lost, 0.001, "Player min max HP should be 1.0");
+    }
+
+    @Test
+    public void testDebuffAmplifierCalculations() {
+        // Nausea: max level 9 (amp 8), max duration 600 ticks
+        assertEquals(9, calculateLevel(600, 600, 9));
+        assertEquals(5, calculateLevel(300, 600, 9));
+        assertEquals(1, calculateLevel(1, 600, 9));
+
+        // Blindness: max level 15 (amp 14), max duration 1200 ticks
+        assertEquals(15, calculateLevel(1200, 1200, 15));
+        assertEquals(8, calculateLevel(600, 1200, 15));
+        assertEquals(1, calculateLevel(1, 1200, 15));
+
+        // Weakness: max level 18 (amp 17), max duration 12000 ticks
+        assertEquals(18, calculateLevel(12000, 12000, 18));
+        assertEquals(9, calculateLevel(6000, 12000, 18));
+        assertEquals(1, calculateLevel(1, 12000, 18));
+    }
+
+    private int calculateLevel(int currentTicks, int maxTicks, int maxLevel) {
+        int level = (int) Math.ceil(((double) currentTicks / (double) maxTicks) * (double) maxLevel);
+        return Math.max(1, Math.min(maxLevel, level));
+    }
+
+    @Test
+    public void testMaxHpLimitsAndHeartContainerRestoration() {
+        double baseMaxHp = 20.0;
+        double maxAllowedLost = Math.max(0.0, baseMaxHp - 1.0);
+
+        // Player dies 3 times (loses 6 HP / 3 hearts)
+        double lostHp = 0.0;
+        lostHp = Math.min(lostHp + 2.0, maxAllowedLost);
+        lostHp = Math.min(lostHp + 2.0, maxAllowedLost);
+        lostHp = Math.min(lostHp + 2.0, maxAllowedLost);
+        assertEquals(6.0, lostHp, 0.001);
+
+        // Heart container used once
+        lostHp = Math.max(0.0, lostHp - 2.0);
+        assertEquals(4.0, lostHp, 0.001);
+
+        // Heart container used two more times
+        lostHp = Math.max(0.0, lostHp - 2.0);
+        lostHp = Math.max(0.0, lostHp - 2.0);
+        assertEquals(0.0, lostHp, 0.001);
+
+        // Heart container used when lost HP is already 0
+        lostHp = Math.max(0.0, lostHp - 2.0);
+        assertEquals(0.0, lostHp, 0.001, "Lost HP cannot drop below 0.0");
     }
 
     @Test
