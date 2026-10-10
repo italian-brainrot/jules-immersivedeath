@@ -6,6 +6,9 @@ import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResultHolder;
+import net.minecraft.world.entity.ai.attributes.AttributeInstance;
+import net.minecraft.world.entity.ai.attributes.AttributeModifier;
+import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -19,6 +22,20 @@ public class HeartContainerItem extends Item {
     @Override
     public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
         ItemStack itemStack = player.getItemInHand(hand);
+
+        AttributeInstance maxHpAttr = player.getAttribute(Attributes.MAX_HEALTH);
+        AttributeModifier modifier = maxHpAttr != null ? maxHpAttr.getModifier(DeathEventHandler.LOST_MAX_HP_MODIFIER_ID) : null;
+        double lostHp = modifier != null ? Math.abs(modifier.amount()) : 0.0;
+
+        if (lostHp <= 0.001) {
+            if (player instanceof ServerPlayer serverPlayer) {
+                serverPlayer.displayClientMessage(
+                        Component.translatable("item.com.jules.immersivedeath.heart_container.full_health"),
+                        true
+                );
+            }
+            return InteractionResultHolder.fail(itemStack);
+        }
 
         if (!level.isClientSide()) {
             if (player instanceof ServerPlayer serverPlayer) {
@@ -54,12 +71,6 @@ public class HeartContainerItem extends Item {
                     );
 
                     return InteractionResultHolder.consume(itemStack);
-                } else {
-                    serverPlayer.displayClientMessage(
-                            Component.translatable("item.com.jules.immersivedeath.heart_container.full_health"),
-                            true
-                    );
-                    return InteractionResultHolder.fail(itemStack);
                 }
             }
         }

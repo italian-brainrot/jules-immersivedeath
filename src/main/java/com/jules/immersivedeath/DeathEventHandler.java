@@ -1,6 +1,9 @@
 package com.jules.immersivedeath;
 
-import net.minecraft.core.HolderLookup;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.resources.ResourceLocation;
@@ -47,8 +50,9 @@ public class DeathEventHandler {
         }
     }
 
-    @SubscribeEvent(priority = EventPriority.HIGHEST)
+    @SubscribeEvent(priority = EventPriority.LOWEST)
     public static void onLivingDeath(LivingDeathEvent event) {
+        if (event.isCanceled()) return;
         if (!(event.getEntity() instanceof ServerPlayer player)) return;
         if (player.level().getGameRules().getBoolean(GameRules.RULE_KEEPINVENTORY)) return;
 
@@ -59,9 +63,9 @@ public class DeathEventHandler {
         player.getInventory().save(invTag);
         deathData.setInventorySnapshot(invTag);
 
-        long now = System.currentTimeMillis();
+        long now = player.level().getGameTime();
         long lastDeath = deathData.getLastDeathTime();
-        boolean isDeathLoop = (lastDeath > 0L) && ((now - lastDeath) < 60000L); // 1 minute
+        boolean isDeathLoop = (lastDeath >= 0L) && ((now - lastDeath) < 1200L); // 1 minute = 1200 ticks
         deathData.setLastDeathTime(now);
 
         if (isDeathLoop) {
@@ -84,13 +88,46 @@ public class DeathEventHandler {
 
         DeathData deathData = player.getData(ModAttachments.DEATH_DATA);
 
-        // Capture any item entities dropped by other mods/custom slots
-        ListTag extraTag = new ListTag();
-        for (ItemEntity drop : event.getDrops()) {
-            if (drop != null && !drop.getItem().isEmpty()) {
-                extraTag.add(drop.getItem().save(player.registryAccess(), new CompoundTag()));
+        ListTag inventorySnapshot = deathData.getInventorySnapshot();
+        List<ItemStack> expectedMainInventory = new ArrayList<>();
+        if (inventorySnapshot != null) {
+            for (int i = 0; i < inventorySnapshot.size(); i++) {
+                CompoundTag slotTag = inventorySnapshot.getCompound(i);
+                ItemStack stack = ItemStack.parse(player.registryAccess(), slotTag).orElse(ItemStack.EMPTY);
+                if (!stack.isEmpty()) {
+                    expectedMainInventory.add(stack.copy());
+                }
             }
         }
+
+        // Filter out main inventory drops, keeping only extra drops (custom slots/backpacks/accessories)
+        ListTag extraTag = new ListTag();
+        for (ItemEntity drop : event.getDrops()) {
+            if (drop == null || drop.getItem().isEmpty()) continue;
+
+            ItemStack remainingDrop = drop.getItem().copy();
+
+            for (Iterator<ItemStack> it = expectedMainInventory.iterator(); it.hasNext(); ) {
+                ItemStack mainStack = it.next();
+                if (ItemStack.isSameItemSameComponents(mainStack, remainingDrop)) {
+                    int countToDeduct = Math.min(mainStack.getCount(), remainingDrop.getCount());
+                    mainStack.shrink(countToDeduct);
+                    remainingDrop.shrink(countToDeduct);
+
+                    if (mainStack.isEmpty()) {
+                        it.remove();
+                    }
+                    if (remainingDrop.isEmpty()) {
+                        break;
+                    }
+                }
+            }
+
+            if (!remainingDrop.isEmpty()) {
+                extraTag.add(remainingDrop.save(player.registryAccess(), new CompoundTag()));
+            }
+        }
+
         deathData.setExtraDropsSnapshot(extraTag);
 
         event.getDrops().clear();
@@ -119,7 +156,6 @@ public class DeathEventHandler {
                     CompoundTag tag = extraSnapshot.getCompound(i);
                     ItemStack stack = ItemStack.parse(newPlayer.registryAccess(), tag).orElse(ItemStack.EMPTY);
                     if (!stack.isEmpty()) {
-                        // Place into inventory or drop at feet if inventory is somehow full
                         if (!newPlayer.getInventory().add(stack)) {
                             newPlayer.drop(stack, false);
                         }
@@ -186,13 +222,17 @@ public class DeathEventHandler {
             } else {
                 nTicks--;
                 deathData.setNauseaTicks(nTicks);
-                int targetLevel = (int) Math.ceil(((double) nTicks / 600.0) * 9.0);
-                targetLevel = Math.max(1, Math.min(9, targetLevel));
-                int targetAmp = targetLevel - 1;
+                if (nTicks == 0) {
+                    player.removeEffect(MobEffects.CONFUSION);
+                } else {
+                    int targetLevel = (int) Math.ceil(((double) nTicks / 600.0) * 9.0);
+                    targetLevel = Math.max(1, Math.min(9, targetLevel));
+                    int targetAmp = targetLevel - 1;
 
-                MobEffectInstance inst = player.getEffect(MobEffects.CONFUSION);
-                if (inst != null && inst.getAmplifier() != targetAmp && nTicks > 0) {
-                    player.addEffect(new MobEffectInstance(MobEffects.CONFUSION, nTicks, targetAmp, inst.isAmbient(), inst.isVisible(), inst.showIcon()), null);
+                    MobEffectInstance inst = player.getEffect(MobEffects.CONFUSION);
+                    if (inst != null && inst.getAmplifier() != targetAmp) {
+                        player.addEffect(new MobEffectInstance(MobEffects.CONFUSION, nTicks, targetAmp, inst.isAmbient(), inst.isVisible(), inst.showIcon()));
+                    }
                 }
             }
         }
@@ -206,13 +246,17 @@ public class DeathEventHandler {
             } else {
                 bTicks--;
                 deathData.setBlindnessTicks(bTicks);
-                int targetLevel = (int) Math.ceil(((double) bTicks / 1200.0) * 15.0);
-                targetLevel = Math.max(1, Math.min(15, targetLevel));
-                int targetAmp = targetLevel - 1;
+                if (bTicks == 0) {
+                    player.removeEffect(MobEffects.BLINDNESS);
+                } else {
+                    int targetLevel = (int) Math.ceil(((double) bTicks / 1200.0) * 15.0);
+                    targetLevel = Math.max(1, Math.min(15, targetLevel));
+                    int targetAmp = targetLevel - 1;
 
-                MobEffectInstance inst = player.getEffect(MobEffects.BLINDNESS);
-                if (inst != null && inst.getAmplifier() != targetAmp && bTicks > 0) {
-                    player.addEffect(new MobEffectInstance(MobEffects.BLINDNESS, bTicks, targetAmp, inst.isAmbient(), inst.isVisible(), inst.showIcon()), null);
+                    MobEffectInstance inst = player.getEffect(MobEffects.BLINDNESS);
+                    if (inst != null && inst.getAmplifier() != targetAmp) {
+                        player.addEffect(new MobEffectInstance(MobEffects.BLINDNESS, bTicks, targetAmp, inst.isAmbient(), inst.isVisible(), inst.showIcon()));
+                    }
                 }
             }
         }
@@ -226,13 +270,17 @@ public class DeathEventHandler {
             } else {
                 wTicks--;
                 deathData.setWeaknessTicks(wTicks);
-                int targetLevel = (int) Math.ceil(((double) wTicks / 12000.0) * 18.0);
-                targetLevel = Math.max(1, Math.min(18, targetLevel));
-                int targetAmp = targetLevel - 1;
+                if (wTicks == 0) {
+                    player.removeEffect(MobEffects.WEAKNESS);
+                } else {
+                    int targetLevel = (int) Math.ceil(((double) wTicks / 12000.0) * 18.0);
+                    targetLevel = Math.max(1, Math.min(18, targetLevel));
+                    int targetAmp = targetLevel - 1;
 
-                MobEffectInstance inst = player.getEffect(MobEffects.WEAKNESS);
-                if (inst != null && inst.getAmplifier() != targetAmp && wTicks > 0) {
-                    player.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, wTicks, targetAmp, inst.isAmbient(), inst.isVisible(), inst.showIcon()), null);
+                    MobEffectInstance inst = player.getEffect(MobEffects.WEAKNESS);
+                    if (inst != null && inst.getAmplifier() != targetAmp) {
+                        player.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, wTicks, targetAmp, inst.isAmbient(), inst.isVisible(), inst.showIcon()));
+                    }
                 }
             }
         }

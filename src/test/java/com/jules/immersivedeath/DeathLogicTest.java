@@ -34,16 +34,16 @@ public class DeathLogicTest {
     }
 
     @Test
-    public void testOneMinuteDeathLoopProtection() {
-        long death1Time = 1000000L;
-        long death2TimeWithin1Min = death1Time + 30000L; // 30 seconds later
-        long death3TimeAfter1Min = death1Time + 61000L; // 61 seconds later
+    public void testOneMinuteDeathLoopProtectionInTicks() {
+        long death1TimeTicks = 10000L;
+        long death2TimeWithin1MinTicks = death1TimeTicks + 600L; // 30 seconds = 600 ticks
+        long death3TimeAfter1MinTicks = death1TimeTicks + 1220L; // 61 seconds = 1220 ticks
 
-        boolean isDeathLoop1 = (death1Time > 0L) && ((death2TimeWithin1Min - death1Time) < 60000L);
-        assertTrue(isDeathLoop1, "Death within 30s should be detected as death loop");
+        boolean isDeathLoop1 = (death1TimeTicks >= 0L) && ((death2TimeWithin1MinTicks - death1TimeTicks) < 1200L);
+        assertTrue(isDeathLoop1, "Death within 30s (600 ticks) should be detected as death loop");
 
-        boolean isDeathLoop2 = (death1Time > 0L) && ((death3TimeAfter1Min - death1Time) < 60000L);
-        assertFalse(isDeathLoop2, "Death after 61s should NOT be detected as death loop");
+        boolean isDeathLoop2 = (death1TimeTicks >= 0L) && ((death3TimeAfter1MinTicks - death1TimeTicks) < 1200L);
+        assertFalse(isDeathLoop2, "Death after 61s (1220 ticks) should NOT be detected as death loop");
     }
 
     @Test
