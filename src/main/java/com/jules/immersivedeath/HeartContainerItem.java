@@ -28,12 +28,10 @@ public class HeartContainerItem extends Item {
         double lostHp = modifier != null ? Math.abs(modifier.amount()) : 0.0;
 
         if (lostHp <= 0.001) {
-            if (player instanceof ServerPlayer serverPlayer) {
-                serverPlayer.displayClientMessage(
-                        Component.translatable("item.com.jules.immersivedeath.heart_container.full_health"),
-                        true
-                );
-            }
+            player.displayClientMessage(
+                    Component.translatable("item.com.jules.immersivedeath.heart_container.full_health"),
+                    true
+            );
             return InteractionResultHolder.fail(itemStack);
         }
 

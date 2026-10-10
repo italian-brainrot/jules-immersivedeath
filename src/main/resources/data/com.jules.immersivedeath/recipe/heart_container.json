@@ -8,7 +8,7 @@
   ],
   "key": {
     "C": {
-      "tag": "minecraft:crops"
+      "tag": "c:crops"
     },
     "D": {
       "item": "minecraft:diamond"
