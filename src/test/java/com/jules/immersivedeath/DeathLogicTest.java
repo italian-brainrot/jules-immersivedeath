@@ -106,4 +106,25 @@ public class DeathLogicTest {
         double newLost2 = Math.max(0.0, 1.0 - 2.0); // restore when 1 HP lost
         assertEquals(0.0, newLost2, 0.001, "Should cap lost HP at 0.0");
     }
+
+    @Test
+    public void testInventorySnapshotClearingOnClone() {
+        DeathData data = new DeathData();
+        net.minecraft.nbt.ListTag tag = new net.minecraft.nbt.ListTag();
+        tag.add(new net.minecraft.nbt.CompoundTag());
+        data.setInventorySnapshot(tag);
+        assertFalse(data.getInventorySnapshot().isEmpty());
+
+        data.setInventorySnapshot(new net.minecraft.nbt.ListTag());
+        assertTrue(data.getInventorySnapshot().isEmpty(), "Inventory snapshot should be cleared");
+    }
+
+    @Test
+    public void testMaxHpClampingSafeguard() {
+        double baseMaxHp = 10.0;
+        double maxAllowedLost = Math.max(0.0, baseMaxHp - 1.0); // 9.0
+        double lostMaxHp = 15.0; // Exceeds max allowed
+        double actualLost = Math.min(lostMaxHp, maxAllowedLost);
+        assertEquals(9.0, actualLost, 0.001, "Max HP lost should be clamped so remaining health is at least 1.0");
+    }
 }

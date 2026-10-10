@@ -35,11 +35,15 @@ public class DeathEventHandler {
         AttributeInstance maxHpAttr = player.getAttribute(Attributes.MAX_HEALTH);
         if (maxHpAttr == null) return;
 
+        double baseMaxHp = player.getAttributeBaseValue(Attributes.MAX_HEALTH);
+        double maxAllowedLost = Math.max(0.0, baseMaxHp - 1.0);
+        double actualLost = Math.min(lostMaxHp, maxAllowedLost);
+
         maxHpAttr.removeModifier(LOST_MAX_HP_MODIFIER_ID);
-        if (lostMaxHp > 0.001) {
+        if (actualLost > 0.001) {
             AttributeModifier modifier = new AttributeModifier(
                     LOST_MAX_HP_MODIFIER_ID,
-                    -lostMaxHp,
+                    -actualLost,
                     AttributeModifier.Operation.ADD_VALUE
             );
             maxHpAttr.addTransientModifier(modifier);
@@ -81,7 +85,7 @@ public class DeathEventHandler {
         }
     }
 
-    @SubscribeEvent(priority = EventPriority.LOWEST)
+    @SubscribeEvent(priority = EventPriority.HIGHEST)
     public static void onLivingDrops(LivingDropsEvent event) {
         if (event.isCanceled()) return;
         if (!(event.getEntity() instanceof ServerPlayer player)) return;
@@ -140,6 +144,10 @@ public class DeathEventHandler {
             if (snapshot != null && !snapshot.isEmpty()) {
                 newPlayer.getInventory().load(snapshot);
                 oldData.setInventorySnapshot(new ListTag());
+                DeathData newData = newPlayer.getData(ModAttachments.DEATH_DATA);
+                if (newData != null) {
+                    newData.setInventorySnapshot(new ListTag());
+                }
             }
 
             // Standard vanilla player experience resetting on death when keepInventory is false
@@ -214,7 +222,7 @@ public class DeathEventHandler {
 
                     MobEffectInstance inst = player.getEffect(MobEffects.CONFUSION);
                     if (inst != null && inst.getAmplifier() != targetAmp) {
-                        player.addEffect(new MobEffectInstance(MobEffects.CONFUSION, nTicks, targetAmp, inst.isAmbient(), inst.isVisible(), inst.showIcon()));
+                        player.forceAddEffect(new MobEffectInstance(MobEffects.CONFUSION, nTicks, targetAmp, inst.isAmbient(), inst.isVisible(), inst.showIcon()), null);
                     }
                 }
             }
@@ -238,7 +246,7 @@ public class DeathEventHandler {
 
                     MobEffectInstance inst = player.getEffect(MobEffects.BLINDNESS);
                     if (inst != null && inst.getAmplifier() != targetAmp) {
-                        player.addEffect(new MobEffectInstance(MobEffects.BLINDNESS, bTicks, targetAmp, inst.isAmbient(), inst.isVisible(), inst.showIcon()));
+                        player.forceAddEffect(new MobEffectInstance(MobEffects.BLINDNESS, bTicks, targetAmp, inst.isAmbient(), inst.isVisible(), inst.showIcon()), null);
                     }
                 }
             }
@@ -262,7 +270,7 @@ public class DeathEventHandler {
 
                     MobEffectInstance inst = player.getEffect(MobEffects.WEAKNESS);
                     if (inst != null && inst.getAmplifier() != targetAmp) {
-                        player.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, wTicks, targetAmp, inst.isAmbient(), inst.isVisible(), inst.showIcon()));
+                        player.forceAddEffect(new MobEffectInstance(MobEffects.WEAKNESS, wTicks, targetAmp, inst.isAmbient(), inst.isVisible(), inst.showIcon()), null);
                     }
                 }
             }

@@ -9,6 +9,10 @@
     "minecraft:melon_slice",
     "minecraft:pumpkin",
     "minecraft:pitcher_pod",
-    "minecraft:torchflower_seeds"
+    "minecraft:torchflower_seeds",
+    {
+      "id": "#c:crops",
+      "required": false
+    }
   ]
 }
