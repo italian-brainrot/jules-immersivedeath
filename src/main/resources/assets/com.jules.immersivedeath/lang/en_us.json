@@ -1,0 +1,7 @@
+{
+  "item.com.jules.immersivedeath.heart_container": "Heart Container",
+  "item.com.jules.immersivedeath.heart_container.restored": "Restored %d Heart of Max Health!",
+  "item.com.jules.immersivedeath.heart_container.full_health": "Your Max Health is already full!",
+  "hud.com.jules.immersivedeath.lost_max_hp_int": "Lost Max HP: %d Hearts",
+  "hud.com.jules.immersivedeath.lost_max_hp_float": "Lost Max HP: %s Hearts"
+}
