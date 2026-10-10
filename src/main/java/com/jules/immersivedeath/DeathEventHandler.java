@@ -67,6 +67,10 @@ public class DeathEventHandler {
         player.getInventory().save(invTag);
         deathData.setInventorySnapshot(invTag);
 
+        // Save Curios inventory snapshot if present
+        CompoundTag curiosTag = CuriosHelper.saveCuriosInventory(player);
+        deathData.setCuriosSnapshot(curiosTag);
+
         long now = player.level().getGameTime();
         long lastDeath = deathData.getLastDeathTime();
         boolean isDeathLoop = (lastDeath >= 0L) && ((now - lastDeath) < 1200L); // 1 minute = 1200 ticks
@@ -91,46 +95,8 @@ public class DeathEventHandler {
         if (!(event.getEntity() instanceof ServerPlayer player)) return;
         if (player.level().getGameRules().getBoolean(GameRules.RULE_KEEPINVENTORY)) return;
 
-        DeathData deathData = player.getData(ModAttachments.DEATH_DATA);
-        ListTag invSnapshot = deathData.getInventorySnapshot();
-        if (invSnapshot == null || invSnapshot.isEmpty()) return;
-
-        List<ItemStack> expectedVanillaInventory = new ArrayList<>();
-        for (int i = 0; i < invSnapshot.size(); i++) {
-            CompoundTag slotTag = invSnapshot.getCompound(i);
-            ItemStack stack = ItemStack.parse(player.registryAccess(), slotTag).orElse(ItemStack.EMPTY);
-            if (!stack.isEmpty()) {
-                expectedVanillaInventory.add(stack.copy());
-            }
-        }
-
-        // Remove vanilla inventory drops from drops list so player doesn't drop vanilla items on the ground.
-        // Leave any extra drops (e.g. from accessories, backpacks, custom slots) in event.getDrops()
-        // so other mods (trinkets, curios, gravestones, etc.) can handle them naturally.
-        Iterator<ItemEntity> dropIterator = event.getDrops().iterator();
-        while (dropIterator.hasNext()) {
-            ItemEntity drop = dropIterator.next();
-            if (drop == null || drop.getItem().isEmpty()) continue;
-
-            ItemStack remainingDrop = drop.getItem();
-
-            for (Iterator<ItemStack> it = expectedVanillaInventory.iterator(); it.hasNext(); ) {
-                ItemStack mainStack = it.next();
-                if (ItemStack.isSameItemSameComponents(mainStack, remainingDrop)) {
-                    int countToDeduct = Math.min(mainStack.getCount(), remainingDrop.getCount());
-                    mainStack.shrink(countToDeduct);
-                    remainingDrop.shrink(countToDeduct);
-
-                    if (mainStack.isEmpty()) {
-                        it.remove();
-                    }
-                    if (remainingDrop.isEmpty()) {
-                        dropIterator.remove();
-                        break;
-                    }
-                }
-            }
-        }
+        // Clear player drops so all inventory items (vanilla and custom slots/Curios) are kept on death.
+        event.getDrops().clear();
     }
 
     @SubscribeEvent(priority = EventPriority.HIGHEST)
@@ -144,10 +110,18 @@ public class DeathEventHandler {
             if (snapshot != null && !snapshot.isEmpty()) {
                 newPlayer.getInventory().load(snapshot);
                 oldData.setInventorySnapshot(new ListTag());
-                DeathData newData = newPlayer.getData(ModAttachments.DEATH_DATA);
-                if (newData != null) {
-                    newData.setInventorySnapshot(new ListTag());
-                }
+            }
+
+            CompoundTag curiosSnapshot = oldData.getCuriosSnapshot();
+            if (curiosSnapshot != null && !curiosSnapshot.isEmpty()) {
+                CuriosHelper.restoreCuriosInventory(newPlayer, curiosSnapshot);
+                oldData.setCuriosSnapshot(new CompoundTag());
+            }
+
+            DeathData newData = newPlayer.getData(ModAttachments.DEATH_DATA);
+            if (newData != null) {
+                newData.setInventorySnapshot(new ListTag());
+                newData.setCuriosSnapshot(new CompoundTag());
             }
 
             // Standard vanilla player experience resetting on death when keepInventory is false

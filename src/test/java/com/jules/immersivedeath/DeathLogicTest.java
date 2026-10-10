@@ -178,6 +178,27 @@ public class DeathLogicTest {
     }
 
     @Test
+    public void testCuriosSnapshotSerialization() {
+        DeathData data = new DeathData();
+        net.minecraft.nbt.CompoundTag curiosTag = new net.minecraft.nbt.CompoundTag();
+        curiosTag.putString("TestItem", "CampingBackpack");
+        data.setCuriosSnapshot(curiosTag);
+
+        assertFalse(data.getCuriosSnapshot().isEmpty());
+        assertEquals("CampingBackpack", data.getCuriosSnapshot().getString("TestItem"));
+
+        net.minecraft.nbt.CompoundTag serialized = data.serializeNBT(null);
+        assertTrue(serialized.contains("curiosSnapshot"));
+
+        DeathData data2 = new DeathData();
+        data2.deserializeNBT(null, serialized);
+        assertEquals("CampingBackpack", data2.getCuriosSnapshot().getString("TestItem"));
+
+        data.setCuriosSnapshot(new net.minecraft.nbt.CompoundTag());
+        assertTrue(data.getCuriosSnapshot().isEmpty(), "Curios snapshot should be cleared when set to empty tag");
+    }
+
+    @Test
     public void testMaxHpClampingSafeguard() {
         double baseMaxHp = 10.0;
         double maxAllowedLost = Math.max(0.0, baseMaxHp - 1.0); // 9.0
